@@ -1,0 +1,463 @@
+Financial Contributions to Presidential Campaign by SOHAN SAMANTA
+========================================================
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# The other parameters for "message" and "warning" should also be set to FALSE
+# for other code chunks once you have verified that each plot comes out as you
+# want it to. This will clean up the flow of your report.
+
+library(ggplot2)
+library(reshape)
+library(reshape2)
+library(dplyr)
+library(maps)
+library(GGally)
+library(scales)
+library(gridExtra)
+library(plotly)
+library(RColorBrewer)
+library(lubridate)
+```
+
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+IL <- read.csv('/Users/sohansamanta/R/Data Analysis with R/PROJECT/IL2.csv', 
+               header = TRUE, row.names = NULL)
+row.names <- names(IL)[2:length(names(IL))]
+names(IL) <- row.names
+IL <- IL[, 1:18]
+# changing date and time format
+IL$contb_receipt_dt <- dmy(IL$contb_receipt_dt)
+head(IL)
+
+# special operator
+'%!in%' = Negate('%in%')
+```
+
+> **Tip**: Before you create any plots, it is a good idea to provide a short
+introduction into the dataset that you are planning to explore. Replace this
+quoted text with that general information!
+
+UPDATE THE DATA - insert party details
+```{r}
+republican <- c("Trump, Donald J.", "Cruz, Rafael Edward 'Ted'", "Walker, Scott", 
+                "Bush, Jeb", "Rubio, Marco", "Christie, Christopher J.", "Kasich, John R.",
+                "Paul, Rand", "Graham, Lindsey O.", "Fiorina, Carly", "Jindal, Bobby",
+                "Santorum, Richard J.", "Huckabee, Mike", "Carson, Benjamin S.", 
+                "Perry, James R. (Rick)", "Pataki, George E.")
+democratic <- c("Clinton, Hillary Rodham", "Sanders, Bernard", "O'Malley, Martin Joseph",
+                "Lessig, Lawrence", "Webb, James Henry Jr.")
+libertarian <- c("Johnson, Gary")
+green <- c("Stein, Jill")
+independent <- c("McMullin, Evan")
+
+IL$party = ""
+IL$party[IL$cand_nm %in% republican] = 'republican'
+IL$party[IL$cand_nm %in% democratic] = 'democratic'
+IL$party[IL$cand_nm %in% green] = 'green'
+IL$party[IL$cand_nm %in% independent] = 'independent'
+IL$party[IL$cand_nm %in% libertarian] = 'libertarian'
+```
+
+# Univariate Plots Section
+
+```{r echo=FALSE, Univariate_Plots}
+# grouping the data according to candidates and party
+IL.cand_party <- IL %>%
+  group_by(cand_nm, party) %>%
+  summarise(receipt_amt = sum(contb_receipt_amt),
+            n = n()) %>%
+  arrange(party)
+
+# to order the members according to the money they received
+IL.cand_party$cand_nm <- with(IL.cand_party, factor(cand_nm, levels = cand_nm[order(receipt_amt)]))
+
+
+ggplot(aes(x = cand_nm, y = receipt_amt), data = subset(IL.cand_party))+
+  geom_bar(stat = 'identity', position = 'dodge', aes(fill = party))+ 
+  coord_flip()
+```
+
+```{r}
+IL.party <- IL %>%
+  group_by(party) %>%
+  summarise(receipt_amt = sum(contb_receipt_amt),
+            n = n()) %>%
+  arrange(party)
+
+ggplot(aes(x = party, y = receipt_amt), data = IL.party)+
+  geom_bar(stat = 'identity', aes(fill = party))
+```
+
+So, in Illinois, the democrats get more donations than any other party. Almost 2 times more. And even then, Hillary gets a major share of the donations that the whole party receives. So let us take a quick look at the percentage of donations the members receive.
+
+```{r}
+# Reshaping IL.cand_party
+IL.cand_party.wide <- dcast(IL.cand_party,
+                          party ~ cand_nm,
+                          value.var = 'receipt_amt')
+
+for(i in 1:nrow(IL.cand_party.wide)){
+  IL.cand_party.wide$total[i] <- sum(IL.cand_party.wide[i,2:25], na.rm = TRUE)
+}
+
+IL.cand_party.long <- melt(IL.cand_party.wide,
+                          id.vars = c('party', 'total'))
+
+IL.cand_party.long <- subset(IL.cand_party.long, !is.na(value))
+names(IL.cand_party.long) <- c('party','total','cand_nm','receipt_amt')
+
+IL.cand_party.long$percent <- with(IL.cand_party.long, (receipt_amt*100/total))
+
+# lets look at the percentage of only democrats and republicans
+
+p1 <- ggplot(aes(x = cand_nm, y = percent), 
+             data = subset(IL.cand_party.long, party == 'democratic'))+
+  geom_histogram(stat = 'identity', aes(fill = I('red4')))+
+  ggtitle('Democratic')+
+  labs(y = '% of contribution received')+
+  theme(axis.text.x = element_text(angle = 90), axis.title = element_text(size = 7),
+        axis.title.y = element_text(size = rel(2)), axis.title.x = element_text(size = rel(2)))
+
+p2 <- ggplot(aes(x = cand_nm, y = percent), 
+             data = subset(IL.cand_party.long, party == 'republican'))+
+  geom_histogram(stat = 'identity', aes(fill = I('dodgerblue4')))+
+  ggtitle('Republican')+
+  labs(y = '% of contribution received')+
+  theme(axis.text.x = element_text(angle = 90), axis.title = element_text(size = 7),
+        axis.title.y = element_text(size = rel(2)), axis.title.x = element_text(size = rel(2)))
+
+grid.arrange(p1, p2, ncol = 2)
+
+```
+
+
+lets look at the individual contributions, for the main receipeints
+
+```{r}
+# First lets group the data according to contributors, candidates and the parties
+IL.contributor <- IL %>%
+  group_by(contbr_nm, cand_nm, party) %>%
+  summarise(total_contribution = sum(contb_receipt_amt),
+            n = n()) %>%
+  arrange(contbr_nm)
+
+# Now lets look at one party at a time
+ggplot(aes(x = cand_nm, y = total_contribution), 
+       data = subset(IL.contributor, party == 'democratic'))+
+         geom_boxplot()+
+  scale_y_continuous(limits = c(0,10000), breaks = seq(0,10000,500))
+
+summary(subset(IL.contributor, party == 'democratic'))  
+```
+
+#republican party
+```{r}
+ggplot(aes(x = cand_nm, y = total_contribution), 
+       data = subset(IL.contributor, party == 'republican'))+
+         geom_boxplot()+
+  scale_y_continuous(limits = c(0,20000), breaks = seq(0,20000,500))+
+  theme(axis.text.x = element_text(angle = 90))
+
+summary(subset(IL.contributor, party == 'republican')) 
+```
+
+
+Donald Trump and Bernie Snaders have donations of the same range. How do their summaries stack against each other
+```{r}
+summary(subset(IL.contributor, cand_nm == 'Trump, Donald J.'))  
+summary(subset(IL.contributor, cand_nm == 'Sanders, Bernard'))  
+```
+Freqpoly of above data
+```{r}
+# A grouping to be primarily used in the later stage, but brought forward for this plot
+IL.party_date <- IL %>%
+  group_by(contb_receipt_dt, cand_nm, party) %>%
+  summarise(total_amnt = sum(contb_receipt_amt),
+            mean_amnt = mean(contb_receipt_amt),
+            median_amnt = median(contb_receipt_amt),
+            n = n()) %>%
+  arrange(contb_receipt_dt)
+
+# Freqpoly
+ggplot(aes(x = total_amnt), 
+       data = subset(IL.party_date, cand_nm %in% c('Trump, Donald J.','Sanders, Bernard')))+
+  geom_freqpoly(aes(color = cand_nm))+
+  scale_colour_brewer(type = 'qual', guide = guide_legend(title = 'candidate', reverse = F))+
+  xlim(c(0,NA))+
+  ylim(c(0,NA))
+```
+
+Compare the donors on the basis of their donation amounts
+```{r}
+# what amount does the donors donate. Summary of doation
+summary(IL.contributor$total_contribution)
+
+ggplot(aes(x = total_contribution), data = IL.contributor)+
+  geom_histogram(binwidth = 10, color = I('black'), aes(fill = I('Orange')))+
+  scale_x_continuous(limits = c(0,1500), breaks = seq(0, 1500, 50))
+```
+
+```{r}
+IL.contributor$party <- with(IL.contributor, factor(party, 
+                        levels = c('democratic','republican','libertarian',
+                                       'green','independent')))
+str(IL.contributor$party)
+
+
+ggplot(aes(x = total_contribution, y = n, color = party), data = IL.contributor)+
+  geom_point(alpha = 0.4, position = 'jitter')+
+  xlim(0, quantile(IL.contributor$total_contribution,0.9))+
+  ylim(0, quantile(IL.contributor$n,0.9))+
+  scale_color_brewer(type = 'div', guide = guide_legend(title = 'party', reverse = F))
+```
+
+Now let us look at the contributions through dates
+```{r}
+ggplot(aes(x = contb_receipt_dt, y = total_amnt, color = party), 
+       data = IL.party_date)+
+  geom_line(na.rm = TRUE)+
+  scale_color_brewer(type = 'div', guide = guide_legend(title = 'party', reverse = F))+
+  scale_x_date(limits = c(dmy('01-01-2015'), dmy('01-01-2017')))+
+  ylim(c(0,NA))
+```
+
+each party, and individual candidates
+```{r}
+p1 <- ggplot(aes(x = contb_receipt_dt, y = total_amnt, color = cand_nm), 
+       data = subset(IL.party_date, party == 'democratic'))+
+  geom_line(na.rm = TRUE)+
+  scale_color_brewer(type = 'div', guide = guide_legend(title = 'candidate', reverse = F))+
+  scale_x_date(limits = c(dmy('01-01-2015'), dmy('01-01-2017')))+
+  ylim(c(0,NA))
+
+exclude = c("Jindal, Bobby", "Santorum, Richard J.", "Huckabee, Mike", 
+            "Perry, James R. (Rick)", "Pataki, George E.")
+
+p2 <- ggplot(aes(x = contb_receipt_dt, y = total_amnt, color = cand_nm), 
+       data = subset(IL.party_date, (party == 'republican' & cand_nm %!in% exclude)))+
+  geom_line(na.rm = TRUE)+
+  scale_color_brewer(type = 'div', guide = guide_legend(title = 'candidate', reverse = F))+
+  scale_x_date(limits = c(dmy('01-01-2015'), dmy('01-01-2017')))+
+  ylim(c(0,NA))
+
+grid.arrange(p1, p2, ncol = 1)
+```
+
+Another interesting plot would be to look at the median amounts received by each party
+```{r}
+ggplot(aes(x = median_amnt), data = IL.party_date)+
+  geom_freqpoly(aes(color = party), na.rm = TRUE)+
+  scale_colour_brewer(type = 'qual', guide = guide_legend(title = 'party', reverse = F))+
+  xlim(c(0,NA))+
+  ylim(c(0,175))
+```
+
+```{r}
+# Read a new file that contained zip with corresponding longitudes and latitudes
+
+## The following code to get the longitudes and latitudes take a long time. So I have done the 
+## conversion once and saved the result in a file for easy access the next time I run the code
+
+#zip <- read.csv('/Users/sohansamanta/R/Data Analysis with R/PROJECT/zip_codes_states.csv')
+
+#IL.zip <- IL[c(3,5,7,10,11,19)]
+#IL.zip$long = NA
+#IL.zip$lat = NA
+
+# inserting long & lat
+#for(i in 1:length(IL.zip$contbr_zip)){
+#   indices <- which(zip$zip_code == IL.zip$contbr_zip[i])
+#   IL.zip$lat[i] <- ifelse(length(indices)>0,zip$latitude[indices],NA)
+#   IL.zip$long[i] <- ifelse(length(indices)>0,zip$longitude[indices],NA)
+#}
+
+#write.csv(IL.zip, file = "IL_zip.csv")
+
+IL.zip <- read.csv('/Users/sohansamanta/R/Data Analysis with R/PROJECT/IL_zip.csv')
+```
+
+```{r}
+all_states <- map_data("state")
+
+# state map with dots
+ggplot(aes(x = long, y = lat), data = IL.zip) +
+  geom_polygon(data = all_states, aes(x=long, y=lat, group = group),colour="white", fill="grey10")+
+  geom_point(color = "dark red", na.rm = TRUE)
+```
+
+
+```{r}
+# only chicago with dots
+ggplot(aes(x = long, y = lat), data = subset(IL.zip, long >= '-87.49638' & long <= '-91.50136'
+                                             & lat >= '37.00161' & lat <= '42.50774')) +
+  geom_polygon(data = subset(all_states, region == 'illinois'), 
+               aes(x=long, y=lat, group = group),colour="white", fill="grey10")+
+  geom_point(color = "dark red", na.rm = TRUE, alpha = 0.4, position = 'jitter')
+```
+
+# On a map
+```{r}
+# scaling dot size
+IL.zip_grouped <- subset(IL.zip, contb_receipt_amt > 0)
+
+IL.zip_grouped$amnt[IL.zip_grouped$contb_receipt_amt >= 80] <- '10800'
+IL.zip_grouped$amnt[IL.zip_grouped$contb_receipt_amt >= 27 & 
+                      IL.zip_grouped$contb_receipt_amt <= 80] <- '80'
+IL.zip_grouped$amnt[IL.zip_grouped$contb_receipt_amt >= 15 & 
+                      IL.zip_grouped$contb_receipt_amt <= 27] <- '27'
+IL.zip_grouped$amnt[IL.zip_grouped$contb_receipt_amt <= 15] <- '15'
+
+IL.zip_grouped$amnt <- as.numeric(IL.zip_grouped$amnt)
+
+ggplot(aes(x = long, y = lat), data = subset(IL.zip_grouped, long >= '-87.49638' & long <= '-91.50136'
+                        & lat >= '37.00161' & lat <= '42.50774' & contb_receipt_amt > 0)) +
+  geom_polygon(data = subset(all_states, region == 'illinois'), 
+               aes(x=long, y=lat, group = group),colour="white", fill="grey10")+
+  geom_point(na.rm = TRUE, alpha = 0.5, position = 'jitter',
+             aes(color = party, size = amnt))+
+  scale_size_continuous(range=c(0.5,4.5), name = 'Amount')+
+  scale_color_brewer(type = 'div', guide = guide_legend(title = 'party', reverse = F))
+```
+
+# With time
+```{r}
+IL.zip_grouped$date <- with(IL.zip_grouped, as.character(year(contb_receipt_dt)))
+
+colors <- c("gold",
+            "red4",
+            "cornsilk",
+            "darkgreen")
+
+ggplot(aes(x = long, y = lat), data = subset(IL.zip_grouped, 
+                                  long >= '-87.49638' & long <= '-91.50136'
+                                  & lat >= '37.00161' & lat <= '42.50774' 
+                                  & contb_receipt_amt > 0)) +
+  geom_polygon(data = subset(all_states, region == 'illinois'), 
+               aes(x=long, y=lat, group = group),colour="white", fill="grey10")+
+  geom_point(na.rm = TRUE, alpha = 0.5, position = 'jitter',
+             aes(color = date), shape = 21)+
+  scale_color_manual(values = colors)
+```
+
+
+
+# Univariate Analysis
+
+> **Tip**: Now that you've completed your univariate explorations, it's time to
+reflect on and summarize what you've found. Use the questions below to help you
+gather your observations and add your own if you have other thoughts!
+
+### What is the structure of your dataset?
+
+### What is/are the main feature(s) of interest in your dataset?
+
+### What other features in the dataset do you think will help support your \
+investigation into your feature(s) of interest?
+
+### Did you create any new variables from existing variables in the dataset?
+
+### Of the features you investigated, were there any unusual distributions? \
+Did you perform any operations on the data to tidy, adjust, or change the form \
+of the data? If so, why did you do this?
+
+
+# Bivariate Plots Section
+
+> **Tip**: Based on what you saw in the univariate plots, what relationships
+between variables might be interesting to look at in this section? Don't limit
+yourself to relationships between a main output feature and one of the
+supporting variables. Try to look at relationships between supporting variables
+as well.
+
+```{r echo=FALSE, Bivariate_Plots}
+
+```
+
+# Bivariate Analysis
+
+> **Tip**: As before, summarize what you found in your bivariate explorations
+here. Use the questions below to guide your discussion.
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. How did the feature(s) of interest vary with other features in \
+the dataset?
+
+### Did you observe any interesting relationships between the other features \
+(not the main feature(s) of interest)?
+
+### What was the strongest relationship you found?
+
+
+# Multivariate Plots Section
+
+> **Tip**: Now it's time to put everything together. Based on what you found in
+the bivariate plots section, create a few multivariate plots to investigate
+more complex interactions between variables. Make sure that the plots that you
+create here are justified by the plots you explored in the previous section. If
+you plan on creating any mathematical models, this is the section where you
+will do that.
+
+```{r echo=FALSE, Multivariate_Plots}
+
+```
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. Were there features that strengthened each other in terms of \
+looking at your feature(s) of interest?
+
+### Were there any interesting or surprising interactions between features?
+
+### OPTIONAL: Did you create any models with your dataset? Discuss the \
+strengths and limitations of your model.
+
+------
+
+# Final Plots and Summary
+
+> **Tip**: You've done a lot of exploration and have built up an understanding
+of the structure of and relationships between the variables in your dataset.
+Here, you will select three plots from all of your previous exploration to
+present here as a summary of some of your most interesting findings. Make sure
+that you have refined your selected plots for good titling, axis labels (with
+units), and good aesthetic choices (e.g. color, transparency). After each plot,
+make sure you justify why you chose each plot by describing what it shows.
+
+### Plot One
+```{r echo=FALSE, Plot_One}
+
+```
+
+### Description One
+
+
+### Plot Two
+```{r echo=FALSE, Plot_Two}
+
+```
+
+### Description Two
+
+
+### Plot Three
+```{r echo=FALSE, Plot_Three}
+
+```
+
+### Description Three
+
+------
+
+# Reflection
+
+> **Tip**: Here's the final step! Reflect on the exploration you performed and
+the insights you found. What were some of the struggles that you went through?
+What went well? What was surprising? Make sure you include an insight into
+future work that could be done with the dataset.
+
+> **Tip**: Don't forget to remove this, and the other **Tip** sections before
+saving your final work and knitting the final report!
