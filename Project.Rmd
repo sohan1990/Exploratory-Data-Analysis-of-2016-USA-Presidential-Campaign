@@ -246,6 +246,8 @@ democratic <- subset(IL, party == 'democratic' ) %>%
             mean = mean(contb_receipt_amt),
             median = median(contb_receipt_amt),
             n = n())
+head(democratic)
+rm(democratic)
 ```
 
 
@@ -257,17 +259,19 @@ ggplot(aes(x = cand_nm, y = total_contribution),
   scale_y_continuous(limits = c(0,20000), breaks = seq(0,20000,500))+
   theme(axis.text.x = element_text(angle = 90))
 
-summary(subset(IL.contributor, party == 'republican'),maxsum = 20) 
+summary(subset(IL.contributor, party == 'republican'),maxsum = 16) 
 ```
-The republican party have a lot of members and their distributions are much more
+The republican party has a lot of members and their distributions are much more
 spread out. But again to draw better conclusions we need to look at the numbers.
 ```{r, echo=FALSE}
-democratic <- subset(IL, party == 'republican' ) %>%
+republican <- subset(IL, party == 'republican' ) %>%
   group_by(party, cand_nm) %>%
   summarise(amount = sum(contb_receipt_amt),
             mean = mean(contb_receipt_amt),
             median = median(contb_receipt_amt),
             n = n())
+head(republican, 16)
+rm(republican)
 ```
 
 One thing is pretty clear: Hillary Clinton is leading the race. But there is a lot 
@@ -277,13 +281,27 @@ to see how they compare against each other.
 Lets first look their summaries.
 
 ```{r}
-summary(subset(IL.contributor, cand_nm == 'Trump, Donald J.'))  
-summary(subset(IL.contributor, cand_nm == 'Sanders, Bernard'))  
+candidate <- subset(IL, cand_nm == 'Trump, Donald J.' ) %>%
+  group_by(party, cand_nm) %>%
+  summarise(amount = sum(contb_receipt_amt),
+            mean = mean(contb_receipt_amt),
+            median = median(contb_receipt_amt),
+            n = n())
+head(candidate)
+
+candidate <- subset(IL, cand_nm == 'Sanders, Bernard' ) %>%
+  group_by(party, cand_nm) %>%
+  summarise(amount = sum(contb_receipt_amt),
+            mean = mean(contb_receipt_amt),
+            median = median(contb_receipt_amt),
+            n = n())
+head(candidate)
+rm(candidate)
 ```
 
-Ok, so the numbers look close enough. But that is too much information for a 
-general comparison. Lets plot a preqpoly of the two candidates on the amount
-that they cumulatively received.
+Ok, so the total amounts look close enough. But that does not give us a clear idea
+as to how their contributions are distributed. For a visual comparison lets plot 
+a freqpoly of the two candidates on the amount that they cumulatively received.
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 # A grouping to be primarily used in the later stage, but brought forward for this plot
 IL.party_date <- IL %>%
@@ -302,6 +320,8 @@ ggplot(aes(x = total_amnt),
   xlim(c(0,NA))+
   ylim(c(0,NA))
 ```
+
+### CONTRIBUTORS
 
 Compare the donors on the basis of their donation amounts
 ```{r}
