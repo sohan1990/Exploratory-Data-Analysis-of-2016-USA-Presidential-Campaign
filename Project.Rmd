@@ -342,7 +342,68 @@ ggplot(aes(x = long, y = lat), data = subset(IL.zip_grouped,
   scale_color_manual(values = colors)
 ```
 
+# I have zip wise money. I will place the county description on there.
+# Then group by county. Then get the county wise population in there.
+# So we get contributors from counties as well as the population of those counties
+# then plot number of contributors vs population
+```{r, message = FALSE}
+IL.county_grouped <- IL.zip_grouped %>%
+  group_by(contbr_zip, party) %>%
+  summarise(amount = sum(contb_receipt_amt),
+            n = n())
 
+county_zip <- read.csv('/Users/sohansamanta/R/Data Analysis with R/PROJECT/county_zip.csv')  
+county_zip$county <- as.character(county_zip$county)
+
+IL.county_grouped$county <- ""
+for(i in 1:length(IL.county_grouped$contbr_zip)){
+  index <- which(county_zip$zip == IL.county_grouped$contbr_zip[i])
+  IL.county_grouped$county[i] <- ifelse(length(index)>0, county_zip$county[index], NA)
+}
+
+county_zip.county <- IL.county_grouped %>%
+  group_by(county, party) %>%
+  summarise(amnt = sum(amount),
+            num = sum(n))
+
+
+county_population <- read.csv('/Users/sohansamanta/R/Data Analysis with R/PROJECT/illinois_county_population2.csv')
+county_zip.county$population <- ""
+
+for(i in 1:length(county_zip.county$county)){
+  index <- which(county_population$County == county_zip.county$county[i])
+  county_zip.county$population[i] <- ifelse(length(index)>0, county_population$Population[index], NA)
+}
+
+county_zip.county$population <- as.integer(county_zip.county$population)
+
+ggplot(aes(x = population, y = num, color = party), data = county_zip.county)+
+  geom_smooth(na.rm = TRUE)+
+  scale_x_log10()+
+  scale_color_brewer(type = 'div', guide = guide_legend(title = 'candidate', reverse = F))
+
+```
+
+With respect to occupation(total variation 8364, we wont look at them all)
+```{r}
+length(unique(IL$contbr_occupation))
+
+occupation <- IL %>%
+  group_by(contbr_occupation, party) %>%
+  summarise(amount = sum(contb_receipt_amt),
+            n=n()) %>%
+  arrange(n)
+
+
+occp = c('RETIRED','NOT EMPLOYED','ATTORNEY','TEACHER', 'PROFESSOR', 'PHYSICIAN', 
+         'CONSULTANT','HOMEMAKER', 'LAWYER', 'SALES', 'STUDENT', 'ENGINEER')
+
+
+ggplot(aes(x = party, y = amount), data = subset(occupation, contbr_occupation %in% occp))+
+         geom_bar(stat = 'identity', aes(fill = party))+
+         facet_wrap(~contbr_occupation)+
+  theme(axis.text.x = element_text(angle = 45))
+```
 
 # Univariate Analysis
 
