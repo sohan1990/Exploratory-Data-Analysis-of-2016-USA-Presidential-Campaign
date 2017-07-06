@@ -1,12 +1,31 @@
 Financial Contributions to Presidential Campaign by SOHAN SAMANTA
 ========================================================
 
+## INTRODUCTION
+For this Exploratory Data Analysis project, I have decided to work with one of 
+the Udacity suggested data sets dealing with the financial contributions to the
+presidential election of 2016. The data sets have been divided by states, and 
+here I have chosen to look at the state of Illinois.
+The choice of Illinois is totally random, and the primary motivation behind that
+is to start from neutral ground without any prior expectations of certain outcomes
+or conclusions. As data scientists, we are supposed to be able to draw inferences 
+from available data, not the other way round.
+I start this project with a few initial questions in my mind. And as I progress 
+I try to answer these:
 
+  1. Contributions to parties and candidates are a direct representation of the 
+  peoples support. So who garners the most support? Which party is in the lead, 
+  and which candidates from individual parties are the best contenders? 
+  
+  2. What demographical conclusions can we deduce about the donors from the donations?
+  
+  3. What geographical aspects do these donations show?  Is there any relation
+  between the population of a place and the number of donations?
+  
+  4. How do the contributions vary over time?
+  
 ```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
-# The other parameters for "message" and "warning" should also be set to FALSE
-# for other code chunks once you have verified that each plot comes out as you
-# want it to. This will clean up the flow of your report.
-
+# LIBRARIES
 library(ggplot2)
 library(reshape)
 library(reshape2)
@@ -20,6 +39,8 @@ library(RColorBrewer)
 library(lubridate)
 ```
 
+## THE DATASET
+Let us first take a look at some of the data. 
 
 ```{r echo=FALSE, Load_the_Data}
 # Load the Data
@@ -30,18 +51,24 @@ names(IL) <- row.names
 IL <- IL[, 1:18]
 # changing date and time format
 IL$contb_receipt_dt <- dmy(IL$contb_receipt_dt)
-head(IL)
+str(IL)
 
 # special operator
 '%!in%' = Negate('%in%')
 ```
 
-> **Tip**: Before you create any plots, it is a good idea to provide a short
-introduction into the dataset that you are planning to explore. Replace this
-quoted text with that general information!
+## UPDATE THE DATA
 
-UPDATE THE DATA - insert party details
-```{r}
+We at once notice a few missing pieces that are required to answer the questions 
+we set out to find. One primary missing information in the data set is the political 
+party details, i.e. we do not get any information as to which candidate is affiliated
+to which party. There are other missing links like the coordinates of the contributor,
+the county population information, etc. But we will look at them at a later stage.
+
+For now, let us insert the information into our data set and try to summarise the 
+data.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 republican <- c("Trump, Donald J.", "Cruz, Rafael Edward 'Ted'", "Walker, Scott", 
                 "Bush, Jeb", "Rubio, Marco", "Christie, Christopher J.", "Kasich, John R.",
                 "Paul, Rand", "Graham, Lindsey O.", "Fiorina, Carly", "Jindal, Bobby",
@@ -59,9 +86,31 @@ IL$party[IL$cand_nm %in% democratic] = 'democratic'
 IL$party[IL$cand_nm %in% green] = 'green'
 IL$party[IL$cand_nm %in% independent] = 'independent'
 IL$party[IL$cand_nm %in% libertarian] = 'libertarian'
+
+head(IL)
 ```
 
-# Univariate Plots Section
+## SUMMARY OF THE DATA SET
+```{r}
+names(IL)
+```
+
+So we have 19 variables and 250,411 observations. Thats a lot of data!
+
+```{r}
+unique(IL$cand_nm)
+unique(IL$party)
+```
+We have 24 candidates from the state of Illinois representing 5 political parties.
+Next we see the contributor name, employment and their contributions. We also have 
+the sip code and city name of the individual contributors.These are the points 
+of information that at first glance jumps at me that I can start my work with and
+get some idea as to their correlations.
+
+## Univariate Plots Section
+Lets start with a quick look at the cumulative contributions received by the 
+individual candidates. We would also like some way to distinguish the candidates
+by their parties, so we are color coding them.
 
 ```{r echo=FALSE, Univariate_Plots}
 # grouping the data according to candidates and party
@@ -80,7 +129,15 @@ ggplot(aes(x = cand_nm, y = receipt_amt), data = subset(IL.cand_party))+
   coord_flip()
 ```
 
-```{r}
+From this simple plot only we can identify the fore runners of this election. If
+we believe that contributions are a direct reference to the people's choice, then 
+we find Hillary Clinton to be leading the race by a great amount. Donald Trump 
+comes second and Berie Sander a close third. 
+Democratic party seems to be leading with Hillary and Bernie with Republican folllowing
+them in the second place. Let us take a look at only the party information, without the 
+candidates separated.
+
+```{r, message=FALSE, warning=FALSE}
 IL.party <- IL %>%
   group_by(party) %>%
   summarise(receipt_amt = sum(contb_receipt_amt),
@@ -91,9 +148,21 @@ ggplot(aes(x = party, y = receipt_amt), data = IL.party)+
   geom_bar(stat = 'identity', aes(fill = party))
 ```
 
-So, in Illinois, the democrats get more donations than any other party. Almost 2 times more. And even then, Hillary gets a major share of the donations that the whole party receives. So let us take a quick look at the percentage of donations the members receive.
+So, in Illinois, the democrats get more donations than any other party. Almost 2 
+times more. And even then, Hillary Clinton gets a major share of the donations t
+hat the whole party receives. The independent, libertarian and green party have
+such a small amount of contributions, it will be difficult to draw conclusions from
+their data. This is one of the reasons that in the later parts of this project
+we will be focussing mainly on these two parties(Republican and Democratic) and 
+ignoring the rest.
 
-```{r}
+Another idea as to the relative standing of a candidate in his or her own party
+is the percentage of contribution they received against the total contributions 
+received by the party.
+
+Let us take a quick look at the percentage of donations the members receive.
+
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
 # Reshaping IL.cand_party
 IL.cand_party.wide <- dcast(IL.cand_party,
                           party ~ cand_nm,
@@ -112,7 +181,6 @@ names(IL.cand_party.long) <- c('party','total','cand_nm','receipt_amt')
 IL.cand_party.long$percent <- with(IL.cand_party.long, (receipt_amt*100/total))
 
 # lets look at the percentage of only democrats and republicans
-
 p1 <- ggplot(aes(x = cand_nm, y = percent), 
              data = subset(IL.cand_party.long, party == 'democratic'))+
   geom_histogram(stat = 'identity', aes(fill = I('red4')))+
@@ -134,7 +202,14 @@ grid.arrange(p1, p2, ncol = 2)
 ```
 
 
-lets look at the individual contributions, for the main receipeints
+The percentago of donations received tell us about who is leading the financial
+race, but it gives us no ideas as to the individual contributions by the contributors.
+
+To get a better sense of the contributions, we could do a box plot. These we will
+do one party at a time, since we are interested currently as to how one member stacks 
+up against another and what we can deduce from the donations they receive.
+
+### Democratic Party
 
 ```{r}
 # First lets group the data according to contributors, candidates and the parties
@@ -150,28 +225,66 @@ ggplot(aes(x = cand_nm, y = total_contribution),
          geom_boxplot()+
   scale_y_continuous(limits = c(0,10000), breaks = seq(0,10000,500))
 
-summary(subset(IL.contributor, party == 'democratic'))  
+summary(subset(IL.contributor, party == 'democratic'), maxsum = 6)  
 ```
 
-#republican party
-```{r}
+Hllary Clinton has the largest number of contributors at 19,776. She also has some
+of the richest contributors. From the box plot we can see her largest donation 
+amount received is a little over $8000. 
+
+Martin O'Malley on the other hand has a larger range of donations and his median
+donation received amount is also larger at around $750.
+
+Although the visual range of their donations give us an idea about the the 
+distributions, we should not draw conclusions about their total amount received
+and such. We should always look at the numbers. A summary of the democratic party 
+would  look like the following:
+```{r, echo=FALSE}
+democratic <- subset(IL, party == 'democratic' ) %>%
+  group_by(party, cand_nm) %>%
+  summarise(amount = sum(contb_receipt_amt),
+            mean = mean(contb_receipt_amt),
+            median = median(contb_receipt_amt),
+            n = n())
+```
+
+
+### Republican party
+```{r, message=FALSE, warning=FALSE}
 ggplot(aes(x = cand_nm, y = total_contribution), 
        data = subset(IL.contributor, party == 'republican'))+
          geom_boxplot()+
   scale_y_continuous(limits = c(0,20000), breaks = seq(0,20000,500))+
   theme(axis.text.x = element_text(angle = 90))
 
-summary(subset(IL.contributor, party == 'republican')) 
+summary(subset(IL.contributor, party == 'republican'),maxsum = 20) 
+```
+The republican party have a lot of members and their distributions are much more
+spread out. But again to draw better conclusions we need to look at the numbers.
+```{r, echo=FALSE}
+democratic <- subset(IL, party == 'republican' ) %>%
+  group_by(party, cand_nm) %>%
+  summarise(amount = sum(contb_receipt_amt),
+            mean = mean(contb_receipt_amt),
+            median = median(contb_receipt_amt),
+            n = n())
 ```
 
+One thing is pretty clear: Hillary Clinton is leading the race. But there is a lot 
+of similarities between the numbers between Trump and Bernie. It will be interesting 
+to see how they compare against each other.
 
-Donald Trump and Bernie Snaders have donations of the same range. How do their summaries stack against each other
+Lets first look their summaries.
+
 ```{r}
 summary(subset(IL.contributor, cand_nm == 'Trump, Donald J.'))  
 summary(subset(IL.contributor, cand_nm == 'Sanders, Bernard'))  
 ```
-Freqpoly of above data
-```{r}
+
+Ok, so the numbers look close enough. But that is too much information for a 
+general comparison. Lets plot a preqpoly of the two candidates on the amount
+that they cumulatively received.
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 # A grouping to be primarily used in the later stage, but brought forward for this plot
 IL.party_date <- IL %>%
   group_by(contb_receipt_dt, cand_nm, party) %>%
@@ -346,7 +459,7 @@ ggplot(aes(x = long, y = lat), data = subset(IL.zip_grouped,
 # Then group by county. Then get the county wise population in there.
 # So we get contributors from counties as well as the population of those counties
 # then plot number of contributors vs population
-```{r, message = FALSE}
+```{r, message = FALSE, warning=FALSE}
 IL.county_grouped <- IL.zip_grouped %>%
   group_by(contbr_zip, party) %>%
   summarise(amount = sum(contb_receipt_amt),
