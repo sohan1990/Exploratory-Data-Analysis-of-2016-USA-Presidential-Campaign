@@ -1,5 +1,5 @@
 Financial Contributions to Presidential Campaign by SOHAN SAMANTA
-========================================================
+================================================================================
 
 ## INTRODUCTION
 For this Exploratory Data Analysis project, I have decided to work with one of 
@@ -278,7 +278,7 @@ One thing is pretty clear: Hillary Clinton is leading the race. But there is a l
 of similarities between the numbers between Trump and Bernie. It will be interesting 
 to see how they compare against each other.
 
-Lets first look their summaries.
+Lets first look at their summaries.
 
 ```{r}
 candidate <- subset(IL, cand_nm == 'Trump, Donald J.' ) %>%
@@ -296,8 +296,11 @@ candidate <- subset(IL, cand_nm == 'Sanders, Bernard' ) %>%
             median = median(contb_receipt_amt),
             n = n())
 head(candidate)
+```
+```{r, echo=FALSE}
 rm(candidate)
 ```
+
 
 Ok, so the total amounts look close enough. But that does not give us a clear idea
 as to how their contributions are distributed. For a visual comparison lets plot 
@@ -339,6 +342,7 @@ noticeable are the peaks at certain figures like 250, 500, 600 and so on. These
 are also in the bounds fo our expectations. People are more likely to donate $600
 than say 610 or 590. Hence the peaks.
 
+### SCATTER PLOT (contributors vs contribution)
 Another perspective of the same data may be observed by plotting a scatter plot
 of the individual contributors vs amount donated and then classifying them with 
 the party they contributed to.
@@ -379,7 +383,8 @@ ggplot(aes(x = median_amnt), data = IL.party_date)+
   xlim(c(0,NA))+
   ylim(c(0,175))
 ```
-## TIME FRAME
+
+### TIME FRAME
 
 An important feature that we have neglected to explore all this time has been the 
 time data. There are four years between elections, and the donations happen over 
@@ -444,7 +449,7 @@ one party or the other, we would see clear distinctions of that as well.
 
 For starters, let us look at the map of USA populated by the donors according to 
 their zip codes converted to longitudes and latitudes.
-```{r}
+```{r, echo=FALSE}
 # Read a new file that contained zip with corresponding longitudes and latitudes
 
 ## The following code to get the longitudes and latitudes take a long time. So I have done the 
@@ -509,7 +514,8 @@ The distribution of donors do not show much character to our dissapointment. The
 more or less evenly distributed. What remains to be seen is how the distribution 
 would vary once we add in the amount that each of these places contributed.
 
-### Contribution scaled by dot size
+### CONTRIBUTIONS SCALED BY DOT SIZE
+
 ```{r}
 # scaling dot size
 IL.zip_grouped <- subset(IL.zip, contb_receipt_amt > 0)
@@ -538,12 +544,28 @@ This gives us a better idea as to which locations contributed more money and
 those that had little to contribute. There are some places that are completely blank.
 These could be places with poor economic standing or less population density.
 
+### CONTRIBUTIONS BY COUNTY
 Now, the above visualization has considered contributions from particular 
-locations, as in zip codes to be exact. We can group these ans view them as 
+locations, as in zip codes to be exact. We can group these and view them as 
 contributions from different counties as well. 
 
-```{r}
+```{r, echo=FALSE}
 county <- map_data('county')
+
+IL.county_grouped <- IL.zip_grouped %>%
+  group_by(contbr_zip, party) %>%
+  summarise(amount = sum(contb_receipt_amt),
+            n = n())
+
+county_zip <- read.csv('/Users/sohansamanta/R/Data Analysis with R/PROJECT/county_zip.csv')
+county_population <- read.csv('/Users/sohansamanta/R/Data Analysis with R/PROJECT/illinois_county_population2.csv')
+county_zip$county <- as.character(county_zip$county)
+
+IL.county_grouped$county = ''
+for(i in 1:length(IL.county_grouped$contbr_zip)){
+  index <- which(county_zip == IL.county_grouped$contbr_zip[i])
+  IL.county_grouped$county[i] <- ifelse(length(index)>0, county_zip$county[index], 0)
+}
 
 IL.county_cum <- subset(IL.county_grouped, !is.na(county)) %>%
   group_by(county) %>%
@@ -571,11 +593,13 @@ ggplot(data = sub_county) +
   scale_fill_gradient(trans = "log10")
 ```
 
-But there is no relativity here. Only a scale on which the contributions have
-varied from one county to the other.
+But there is no relativity here. Only a difference by which the total contributions 
+have varied from one county to the other.
 
-To add the human factor here, we need to look at the ratio of contribution to
-population ratio for each country.
+To add the population factor here, we need to look at the ratio of contribution to
+population for each country. 
+
+### Ratio of Contribution to population per county
 
 ```{r}
 ggplot(data = sub_county) + 
@@ -611,6 +635,8 @@ ggplot(aes(x = long, y = lat), data = subset(IL.zip_grouped,
   coord_fixed(1.3)
 ```
 
+### CONTRIBUTORS BY POPULATION
+
 We have looked at the ratio of contribution to population from a geographical
 perspective. But contributions of an individual is dependent upon a lot of factors,
 primary of which is his economic standing.
@@ -620,7 +646,7 @@ correlation with the number of people supporting a candidate. For this we need
 to look not at the amount of contribution, but at the number of contributors
 with respect to the population.
 
-```{r, message = FALSE, warning=FALSE}
+```{r, echo=FALSE, message = FALSE, warning=FALSE}
 IL.county_grouped <- IL.zip_grouped %>%
   group_by(contbr_zip, party) %>%
   summarise(amount = sum(contb_receipt_amt),
@@ -660,6 +686,8 @@ ggplot(aes(x = population, y = num, color = party), data = county_zip.county)+
 
 No surprise here. From our earlier explorations, we expected a result close to this.
 
+### CONTRIBUTIONS BY OCCUPATION
+
 A last part that I would like to touch before wrapping this up is the occupation
 of the contributors.The total variation of occupations are 8364, we wont look at
 all of them.
@@ -686,120 +714,121 @@ ggplot(aes(x = party, y = amount), data = subset(occupation, contbr_occupation %
   theme(axis.text.x = element_text(angle = 45))
 ```
 
-# Univariate Analysis
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 
-> **Tip**: Now that you've completed your univariate explorations, it's time to
-reflect on and summarize what you've found. Use the questions below to help you
-gather your observations and add your own if you have other thoughts!
-
-### What is the structure of your dataset?
-
-### What is/are the main feature(s) of interest in your dataset?
-
-### What other features in the dataset do you think will help support your \
-investigation into your feature(s) of interest?
-
-### Did you create any new variables from existing variables in the dataset?
-
-### Of the features you investigated, were there any unusual distributions? \
-Did you perform any operations on the data to tidy, adjust, or change the form \
-of the data? If so, why did you do this?
-
-
-# Bivariate Plots Section
-
-> **Tip**: Based on what you saw in the univariate plots, what relationships
-between variables might be interesting to look at in this section? Don't limit
-yourself to relationships between a main output feature and one of the
-supporting variables. Try to look at relationships between supporting variables
-as well.
-
-```{r echo=FALSE, Bivariate_Plots}
-
-```
-
-# Bivariate Analysis
-
-> **Tip**: As before, summarize what you found in your bivariate explorations
-here. Use the questions below to guide your discussion.
-
-### Talk about some of the relationships you observed in this part of the \
-investigation. How did the feature(s) of interest vary with other features in \
-the dataset?
-
-### Did you observe any interesting relationships between the other features \
-(not the main feature(s) of interest)?
-
-### What was the strongest relationship you found?
-
-
-# Multivariate Plots Section
-
-> **Tip**: Now it's time to put everything together. Based on what you found in
-the bivariate plots section, create a few multivariate plots to investigate
-more complex interactions between variables. Make sure that the plots that you
-create here are justified by the plots you explored in the previous section. If
-you plan on creating any mathematical models, this is the section where you
-will do that.
-
-```{r echo=FALSE, Multivariate_Plots}
-
-```
-
-# Multivariate Analysis
-
-### Talk about some of the relationships you observed in this part of the \
-investigation. Were there features that strengthened each other in terms of \
-looking at your feature(s) of interest?
-
-### Were there any interesting or surprising interactions between features?
-
-### OPTIONAL: Did you create any models with your dataset? Discuss the \
-strengths and limitations of your model.
-
-------
 
 # Final Plots and Summary
 
-> **Tip**: You've done a lot of exploration and have built up an understanding
-of the structure of and relationships between the variables in your dataset.
-Here, you will select three plots from all of your previous exploration to
-present here as a summary of some of your most interesting findings. Make sure
-that you have refined your selected plots for good titling, axis labels (with
-units), and good aesthetic choices (e.g. color, transparency). After each plot,
-make sure you justify why you chose each plot by describing what it shows.
+This data set is essentially a log of how much money was contributed by individuals
+and institutions to the candidates from different political parties from the state
+of illinois who were contesting in the Presidential Election of 2016.
+
+One of the initial plots which according to me was also one of the most significant 
+ones is the one given below:
 
 ### Plot One
 ```{r echo=FALSE, Plot_One}
-
+p1 <- ggplot(aes(x = cand_nm, y = receipt_amt), data = subset(IL.cand_party))+
+  geom_bar(stat = 'identity', position = 'dodge', aes(fill = party))+ 
+  coord_flip()+
+  labs(y='Amount Received', title = 'Cumulative contributions to candidates',
+  x='Candidate Names')
+  
+p2 <- ggplot(aes(x = party, y = receipt_amt), data = IL.party)+
+  geom_bar(stat = 'identity', aes(fill = I('dark red')))+
+  coord_flip()+labs(y='Amount Received', x='Party Names')
+  
+grid.arrange(p1, p2, ncol = 1)
 ```
 
 ### Description One
+The immense disparity between the amounts donated to each of the parties and the 
+political candidate who is the sole reason for the this huge margin is clear from 
+the above graphs. Hillary Clinton not only commands a little above 80% of the 
+total fund collected by the democratic party, she also towers amongst her contestants
+by leaving behind her close second Donald Trump by almost 12 million dollars.
+
+This difference is significant, and gives a clear view of the political favourite
+from the state of illinois, at least, as far as donating citizens are concerned.
 
 
 ### Plot Two
 ```{r echo=FALSE, Plot_Two}
+candidates = c('Clinton, Hillary Rodham', 'Trump, Donald J.', 'Sanders, Bernard',
+               'Rubio, Marco', 'Bush, Jeb', "Cruz, Rafael Edward 'Ted'")
 
+p1 <- ggplot(aes(x = median_amnt), data = subset(IL.party_date, cand_nm %in% candidates))+
+  geom_freqpoly(aes(color = cand_nm), na.rm = TRUE, binwidth = 5)+
+  scale_colour_brewer(type = 'qual', guide = guide_legend(title = 'candidates', reverse = F))+
+  xlim(c(0,500))+
+  ylim(c(0,NA))+
+  labs(x='Median Amount', title = 'Frequency polygraph of No. of candidates per mean amount',
+       y='Number of candidates')
+
+p2 <- ggplot(aes(x = median_amnt), data = subset(IL.party_date, cand_nm %in% candidates &
+                                             median_amnt > 0))+
+  geom_freqpoly(aes(color = cand_nm), na.rm = TRUE, binwidth = 5)+
+  scale_colour_brewer(type = 'qual', guide = guide_legend(title = 'candidates', reverse = F))+
+  #xlim(c(0,NA))+
+  #ylim(c(0,125))+
+  labs(x='Median Amount(log scale)', title = 'Frequency polygraph of No. of candidates per mean amount',
+       y='Number of candidates')+
+  scale_x_sqrt()
+
+grid.arrange(p1,p2,ncol=1)
 ```
 
 ### Description Two
-
+This is an interesting plot and gives us a good idea of the variation of the 
+contributions. It is interesting to note that the median amount of donations for
+three candidates, Clinton, Cruz and Sanders have peaks at the same median. This tells
+us that the median amount of contributors for all three of these candidates probably
+have comparable economic standings. Trump however has a median amount a little higher 
+than them. It can also be seen that both Jeb and Rubio have peaks at higher median
+values, but their peaks are so small, the number of people corresponding to them
+are quite frankly not of much significance on the grand scale of things.
 
 ### Plot Three
 ```{r echo=FALSE, Plot_Three}
-
+ggplot(data = sub_county) + 
+  geom_polygon(aes(x = long, y = lat, fill = cont_by_popl, group = group), color = "black")+ 
+  coord_fixed(1.3)+
+  scale_fill_gradient(trans = "log10")+
+  labs(title = 'Ratio of contribution to population per county')
 ```
 
 ### Description Three
-
+This color scale across counties representing the contributions per county divided
+by the population of that county is interesting. We see a very clear picture of
+which counties contributed more per person and which did not. Most significant are 
+grey counties which represent no contributions what so ever. Now this could be 
+considered as outliers caused by missing zip codes for contributors, but even then
+this is too large a discrepancy to be a coincidence. That leaves the fact that either
+the contribution for these regions are too low or the population is so high so as
+to decrease the small contributions negligible.
 ------
 
 # Reflection
 
-> **Tip**: Here's the final step! Reflect on the exploration you performed and
-the insights you found. What were some of the struggles that you went through?
-What went well? What was surprising? Make sure you include an insight into
-future work that could be done with the dataset.
+I approached this project by first stating a few questions that I felt one would like 
+to know from a financial data set relating to a presidential election. As I thought 
+about answering these questions, I thought about the information required and the 
+information available in the data set. I then proceeded to answer them by first 
+looking at the data structure and summary and then selecting variables from these 
+summaries and then working on them. 
+After each plot and analysis, I revisited my questions and came up with new ones.
+My approach was to go over the data and find correlations between the variables
+I was working with. Once a relation was established, I would dig deeper to see if
+more inferences could be drawn by maybe adding new data or sometimes even removing 
+some data.
+It took me more time to complete than I had initally expected. While working I found 
+myself to be continually visiting my previous works and changing them to make minute
+adjustments based on some new information uncovered at a later stage.
 
-> **Tip**: Don't forget to remove this, and the other **Tip** sections before
-saving your final work and knitting the final report!
+
+### Sources
+1. Main dataset from the Federal Election Commission 
+2. Stack overflow for ideas
+3. Population by county from web
+4. Zip code by county from web
