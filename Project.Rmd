@@ -323,7 +323,8 @@ ggplot(aes(x = total_amnt),
 
 ### CONTRIBUTORS
 
-Compare the donors on the basis of their donation amounts
+We start off by plotting histogram of the number of donors by the amount they 
+donated.
 ```{r}
 # what amount does the donors donate. Summary of doation
 summary(IL.contributor$total_contribution)
@@ -333,12 +334,19 @@ ggplot(aes(x = total_contribution), data = IL.contributor)+
   scale_x_continuous(limits = c(0,1500), breaks = seq(0, 1500, 50))
 ```
 
+And as expectd, we find a larger number of people in the lower range. Also 
+noticeable are the peaks at certain figures like 250, 500, 600 and so on. These  
+are also in the bounds fo our expectations. People are more likely to donate $600
+than say 610 or 590. Hence the peaks.
+
+Another perspective of the same data may be observed by plotting a scatter plot
+of the individual contributors vs amount donated and then classifying them with 
+the party they contributed to.
 ```{r}
 IL.contributor$party <- with(IL.contributor, factor(party, 
                         levels = c('democratic','republican','libertarian',
                                        'green','independent')))
-str(IL.contributor$party)
-
+#str(IL.contributor$party)
 
 ggplot(aes(x = total_contribution, y = n, color = party), data = IL.contributor)+
   geom_point(alpha = 0.4, position = 'jitter')+
@@ -347,7 +355,38 @@ ggplot(aes(x = total_contribution, y = n, color = party), data = IL.contributor)
   scale_color_brewer(type = 'div', guide = guide_legend(title = 'party', reverse = F))
 ```
 
-Now let us look at the contributions through dates
+This graph gives some interesting results. 
+
+First, we see the absolute disparity between the democratic and republican parties
+with respect to the other parties. The number of individuals contributing to the 
+3 lesser known political parties are almost insignificant to the leading ones.
+
+Corresponding to the peaks we found in the earlier histograph, we also find certain 
+parallel lines formed by the dots that are formed due to more number of cotributors
+at certain amounts.
+
+
+### MEDIAN TREND
+
+Although illuminating, the above graphs dont really show us a trend of the contributors
+with respect to the amount they are willing to contribute to their parties.
+An interesting plot from this perspective would be to look at the median amounts
+received by each party by the number of people donating these median amounts.
+```{r, message=FALSE, warning=FALSE}
+ggplot(aes(x = median_amnt), data = IL.party_date)+
+  geom_freqpoly(aes(color = party), na.rm = TRUE)+
+  scale_colour_brewer(type = 'qual', guide = guide_legend(title = 'party', reverse = F))+
+  xlim(c(0,NA))+
+  ylim(c(0,175))
+```
+## TIME FRAME
+
+An important feature that we have neglected to explore all this time has been the 
+time data. There are four years between elections, and the donations happen over 
+time throughout these four years.
+
+It will be interesting to note how the contributions vary over time for the 
+individual parties.
 ```{r}
 ggplot(aes(x = contb_receipt_dt, y = total_amnt, color = party), 
        data = IL.party_date)+
@@ -357,7 +396,21 @@ ggplot(aes(x = contb_receipt_dt, y = total_amnt, color = party),
   ylim(c(0,NA))
 ```
 
-each party, and individual candidates
+This plot is not gradual in its trend at all. It is mostly comprised of sudden 
+peaks of donations and then gaps of nil or very small donations. This is interesting.
+The reason, without going into more details or data hunting on the web, may be 
+that these donations correspond with certain political events or decisions by the 
+parties that influenced the supporters to show their support in the form of
+donations.
+
+The trend of the donations increasing towards the end is very logical and expected.
+It is obvious that more people tend to donate as the presidential election date nears
+and they have had a chance to make up their mind as to who they want to support.
+
+We can do the same thing for individual candidates that we have done above for
+the political parties as a whole. 
+
+Here we only take a closer look at the democratic and republican parties. 
 ```{r}
 p1 <- ggplot(aes(x = contb_receipt_dt, y = total_amnt, color = cand_nm), 
        data = subset(IL.party_date, party == 'democratic'))+
@@ -379,14 +432,9 @@ p2 <- ggplot(aes(x = contb_receipt_dt, y = total_amnt, color = cand_nm),
 grid.arrange(p1, p2, ncol = 1)
 ```
 
-Another interesting plot would be to look at the median amounts received by each party
-```{r}
-ggplot(aes(x = median_amnt), data = IL.party_date)+
-  geom_freqpoly(aes(color = party), na.rm = TRUE)+
-  scale_colour_brewer(type = 'qual', guide = guide_legend(title = 'party', reverse = F))+
-  xlim(c(0,NA))+
-  ylim(c(0,175))
-```
+
+### GEOGRAPHICAL ASPECTS
+
 
 ```{r}
 # Read a new file that contained zip with corresponding longitudes and latitudes
