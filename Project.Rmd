@@ -435,7 +435,15 @@ grid.arrange(p1, p2, ncol = 1)
 
 ### GEOGRAPHICAL ASPECTS
 
+We know about the zip codes of the contributors. So, it would be interesting to 
+see people from which places are contributing and who are they contributing to.
+We could plot the different locations that people are contributung from on a map.
 
+If we are lucky, and there are some places which are overwhelmingly in favour of 
+one party or the other, we would see clear distinctions of that as well.
+
+For starters, let us look at the map of USA populated by the donors according to 
+their zip codes converted to longitudes and latitudes.
 ```{r}
 # Read a new file that contained zip with corresponding longitudes and latitudes
 
@@ -466,20 +474,42 @@ all_states <- map_data("state")
 # state map with dots
 ggplot(aes(x = long, y = lat), data = IL.zip) +
   geom_polygon(data = all_states, aes(x=long, y=lat, group = group),colour="white", fill="grey10")+
-  geom_point(color = "dark red", na.rm = TRUE)
+  geom_point(color = "dark red", na.rm = TRUE)+
+  coord_fixed(1.3)
 ```
+
+So, for the state of illinois, ofcourse the donors will also be located in the 
+same state. But we do find some donors outside of the state lines. 
+
+Could they be outliers? Are they informations wrongly entered into they system?
+Could be. Some other explanations may be people who were originally from Illinois,
+or still are and are temporarily located else where are probably donating money 
+from their temporary locations. Maybe some organisations are donating money for 
+to local candidate, but from institutions that hold their money and are located 
+outside the state. 
+
+In any case, with no further information, it is difficult for us to come to any
+conclusion. In the mean time, let us overlook these locations that are outside the 
+state borders and take a closer look at all of the contributions from within state.
 
 
 ```{r}
 # only chicago with dots
+county <- map_data('county')
+
 ggplot(aes(x = long, y = lat), data = subset(IL.zip, long >= '-87.49638' & long <= '-91.50136'
                                              & lat >= '37.00161' & lat <= '42.50774')) +
-  geom_polygon(data = subset(all_states, region == 'illinois'), 
+  geom_polygon(data = subset(county, region == 'illinois'), 
                aes(x=long, y=lat, group = group),colour="white", fill="grey10")+
-  geom_point(color = "dark red", na.rm = TRUE, alpha = 0.4, position = 'jitter')
+  geom_point(color = "dark red", na.rm = TRUE, alpha = 0.4, position = 'jitter')+
+  coord_fixed(1.3)
 ```
 
-# On a map
+The distribution of donors do not show much character to our dissapointment. They 
+more or less evenly distributed. What remains to be seen is how the distribution 
+would vary once we add in the amount that each of these places contributed.
+
+### Contribution scaled by dot size
 ```{r}
 # scaling dot size
 IL.zip_grouped <- subset(IL.zip, contb_receipt_amt > 0)
@@ -500,10 +530,67 @@ ggplot(aes(x = long, y = lat), data = subset(IL.zip_grouped, long >= '-87.49638'
   geom_point(na.rm = TRUE, alpha = 0.5, position = 'jitter',
              aes(color = party, size = amnt))+
   scale_size_continuous(range=c(0.5,4.5), name = 'Amount')+
-  scale_color_brewer(type = 'div', guide = guide_legend(title = 'party', reverse = F))
+  scale_color_brewer(type = 'div', guide = guide_legend(title = 'party', reverse = F))+
+  coord_fixed(1.3)
 ```
 
-# With time
+This gives us a better idea as to which locations contributed more money and 
+those that had little to contribute. There are some places that are completely blank.
+These could be places with poor economic standing or less population density.
+
+Now, the above visualization has considered contributions from particular 
+locations, as in zip codes to be exact. We can group these ans view them as 
+contributions from different counties as well. 
+
+```{r}
+county <- map_data('county')
+
+IL.county_cum <- subset(IL.county_grouped, !is.na(county)) %>%
+  group_by(county) %>%
+  summarise( amount = sum(amount))
+
+sub_county <- subset(county, region == 'illinois')
+#sub_county <- sub_county[c(1,2,3,5,6)]
+
+sub_county$county_name <- paste0(sub_county$subregion,' County')
+
+sub_county$contribution <- NA
+sub_county$population <- NA
+for(i in 1:length(sub_county$long)){
+  index <- which(toupper(sub_county$county_name[i]) == toupper(IL.county_cum$county))
+  ifelse(length(index)>0,sub_county$contribution[i] <- IL.county_cum$amount[index],0)
+  index <- which(toupper(sub_county$county_name[i]) == toupper(county_population$County))
+  ifelse(length(index)>0,sub_county$population[i] <- county_population$Population[index],0)
+}
+
+sub_county$cont_by_popl = with(sub_county, contribution/population)
+
+ggplot(data = sub_county) + 
+  geom_polygon(aes(x = long, y = lat, fill = contribution, group = group), color = "black")+ 
+  coord_fixed(1.3)+
+  scale_fill_gradient(trans = "log10")
+```
+
+But there is no relativity here. Only a scale on which the contributions have
+varied from one county to the other.
+
+To add the human factor here, we need to look at the ratio of contribution to
+population ratio for each country.
+
+```{r}
+ggplot(data = sub_county) + 
+  geom_polygon(aes(x = long, y = lat, fill = cont_by_popl, group = group), color = "black")+ 
+  coord_fixed(1.3)+
+  scale_fill_gradient(trans = "log10")
+```
+
+
+### A time frame added to geographical plot
+
+We have already seen one time frame plot. We now add those data to the map above,
+and look how people from different locations have donated over time from a 
+geographical point of view.
+
 ```{r}
 IL.zip_grouped$date <- with(IL.zip_grouped, as.character(year(contb_receipt_dt)))
 
@@ -520,13 +607,19 @@ ggplot(aes(x = long, y = lat), data = subset(IL.zip_grouped,
                aes(x=long, y=lat, group = group),colour="white", fill="grey10")+
   geom_point(na.rm = TRUE, alpha = 0.5, position = 'jitter',
              aes(color = date), shape = 21)+
-  scale_color_manual(values = colors)
+  scale_color_manual(values = colors)+
+  coord_fixed(1.3)
 ```
 
-# I have zip wise money. I will place the county description on there.
-# Then group by county. Then get the county wise population in there.
-# So we get contributors from counties as well as the population of those counties
-# then plot number of contributors vs population
+We have looked at the ratio of contribution to population from a geographical
+perspective. But contributions of an individual is dependent upon a lot of factors,
+primary of which is his economic standing.
+
+The ratio of amount divided by population does not necessarily portray a direct
+correlation with the number of people supporting a candidate. For this we need
+to look not at the amount of contribution, but at the number of contributors
+with respect to the population.
+
 ```{r, message = FALSE, warning=FALSE}
 IL.county_grouped <- IL.zip_grouped %>%
   group_by(contbr_zip, party) %>%
@@ -565,7 +658,14 @@ ggplot(aes(x = population, y = num, color = party), data = county_zip.county)+
 
 ```
 
-With respect to occupation(total variation 8364, we wont look at them all)
+No surprise here. From our earlier explorations, we expected a result close to this.
+
+A last part that I would like to touch before wrapping this up is the occupation
+of the contributors.The total variation of occupations are 8364, we wont look at
+all of them.
+
+Instead we would select a few occupations that have the most number of contributors 
+and study who they contributed towards.
 ```{r}
 length(unique(IL$contbr_occupation))
 
